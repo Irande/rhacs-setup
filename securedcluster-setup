@@ -1,0 +1,49 @@
+CENTRAL_HOST=$(oc get route central -n stackrox -o jsonpath='{.spec.host}')
+PASSWORD=$(oc get secret central-htpasswd -n stackrox -o jsonpath='{.data.password}' | base64 -d)
+ curl -k -s -u "admin:$PASSWORD"   https://$CENTRAL_HOST/v1/cluster-init/init-bundles   -X POST -H "Content-Type: application/json"   -d "{\"name\":\"local-init-$(date +%s)\"}"   | jq -r '.kubectlBundle' | base64 -d > cluster-init-secrets.yaml
+ oc apply -f cluster-init-secrets.yaml -n stackrox
+oc get secret -n stackrox | grep -E "sensor-tls|collector-tls|admission-control-tls"
+oc get securedcluster local-cluster -n stackrox
+oc describe -n stackrox securedcluster local-cluster
+oc get securedcluster local-cluster -n stackrox
+oc get pods -n stackrox -l app.kubernetes.io/name=collector -o wide
+
+
+
+cat <<EOF | oc apply -f -
+apiVersion: platform.stackrox.io/v1alpha1
+kind: SecuredCluster
+metadata:
+  name: local-cluster
+  namespace: stackrox
+spec:
+  clusterName: local-cluster
+  centralEndpoint: central.stackrox.svc:443
+  admissionControl:
+    listenOnCreates: true
+    listenOnUpdates: true
+  perNode:
+    collector:
+      collection: EBPF
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "200Mi"
+        limits:
+          cpu: "500m"
+          memory: "500Mi"
+EOF
+
+
+oc patch securedcluster local-cluster -n stackrox --type=merge -p '
+spec:
+  perNode:
+    collector:
+      resources:
+        requests:
+          cpu: "0m"
+          memory: "0Mi"
+        limits:
+          cpu: "500m"
+          memory: "512Mi"
+'
