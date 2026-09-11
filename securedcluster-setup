@@ -47,3 +47,51 @@ spec:
           cpu: "500m"
           memory: "512Mi"
 '
+==========================================
+
+oc create namespace stackrox
+
+cat <<EOF | oc apply -f -
+apiVersion: platform.stackrox.io/v1alpha1
+kind: Central
+metadata:
+  name: stackrox-central-services
+  namespace: stackrox
+spec:
+  central:
+    exposure:
+      loadBalancer:
+        enabled: false
+      route:
+        enabled: true
+    persistence:
+      persistentVolumeClaim:
+        claimName: stackrox-db
+        size: 10Gi
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+  scanner:
+    analyzer:
+      scaling:
+        autoScaling: "Disabled"
+        replicas: 1
+      resources:
+        requests:
+          cpu: "250m"
+          memory: "512Mi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
+    scannerComponent: Disabled
+  scannerV4:
+    indexer:
+      scaling:
+        autoScaling: "Disabled"
+        replicas: 1
+    scannerComponent: Disabled
+EOF
